@@ -1,3 +1,5 @@
+export * from './internal/kelvin-temperature-table';
+
 export type ColorHsl = [h: number, s: number, l: number];
 export type ColorRgb = [r: number, g: number, b: number];
 
