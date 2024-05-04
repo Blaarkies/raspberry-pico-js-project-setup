@@ -4,7 +4,7 @@ import {
 } from './stream';
 
 type Stoppable<T> = T & { stop: () => void, stopped: boolean };
-type SequenceIntervalSubject = Stoppable<Subject<number, unknown>>;
+export type SequenceIntervalSubject = Stoppable<Subject<number, unknown>>;
 
 /**
  * Returns an observable that emits according to the time duration specified by
@@ -24,6 +24,7 @@ export function sequencedInterval(sequence: number[]): SequenceIntervalSubject {
 
             await waitForDuration(durationMs);
             if (source$.stopped) {
+                source$.complete();
                 break;
             }
 

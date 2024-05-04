@@ -6,7 +6,8 @@ import {
 import { toExp } from '../common/transform';
 
 interface CurrentSelection {
-    index: number;
+    colorIndex: number;
+    powerIndex: number;
     preset: ColorPreset;
 }
 
@@ -24,6 +25,10 @@ export class ColorCycler {
 
     selected?: CurrentSelection;
 
+    get isPoweredOn(): boolean {
+        return this.active;
+    };
+
     get selectedRgb(): ColorRgb {
         let [r, g, b] = this.selected.preset.rgb;
         let p = this.active
@@ -37,7 +42,7 @@ export class ColorCycler {
     private powerLevel = toExp(2 / 3, this.skewFactor);
     private active = true;
 
-    constructor(colorPresets: HslPreset) {
+    constructor(colorPresets: HslPreset, private readonly powerPresets: number[]) {
         this.presetsList = Object.entries(colorPresets)
             .map(([id, hsl]) => ({
                 id, hsl,
@@ -47,11 +52,17 @@ export class ColorCycler {
     }
 
     cycleColor() {
-        let newIndex = (this.selected.index + 1) % this.presetsList.length;
+        let newIndex = (this.selected.colorIndex + 1) % this.presetsList.length;
         this.setNewSelection(newIndex);
     }
 
-    cyclePower(direction: 1 | -1 = 1, steps = 5) {
+    cyclePower(direction: 1 | -1 = 1) {
+        let newIndex = (this.selected.powerIndex + direction) % this.powerPresets.length;
+        this.powerLevel = this.powerPresets[newIndex];
+        this.selected.powerIndex = newIndex;
+    }
+
+    adjustPower(direction: 1 | -1 = 1, steps = 5) {
         let increaseAmount = 1 / steps;
 
         // When `direction` is positive, a new power is rising...
@@ -71,7 +82,8 @@ export class ColorCycler {
 
     private setNewSelection(index: number) {
         this.selected = {
-            index,
+            colorIndex: index,
+            powerIndex: this.selected?.powerIndex ?? 0,
             preset: this.presetsList[index],
         };
     }
