@@ -1,12 +1,10 @@
-import { Stream } from 'kefir';
+import { IPWM } from 'pwm';
 import {
     getHslAtKelvin,
-    hslToRgb,
     sequencedInterval,
     SequenceIntervalSubject,
     waitForDuration,
 } from './common';
-import { TimeoutHandle } from './common/types';
 import {
     MultiActionButton,
     Ws2812,
@@ -31,9 +29,6 @@ function runProgram() {
         {
             warm: getHslAtKelvin(2000),
             cold: getHslAtKelvin(4000),
-            // red: [0, 1, .5],
-            // green: [.33, 1, .5],
-            // blue: [.67, 1, .5],
         },
         [.15, .4, 1],
     );
@@ -41,6 +36,9 @@ function runProgram() {
     let pinButtonA = 0;
     let pinButtonB = 1;
     let pinPixels = 2;
+    let pinExtraLed = 4;
+
+    let extraLed = board.pwm(pinExtraLed, 1500, .3) as IPWM;
 
     let pixels = new Ws2812(pinPixels, 74);
 
@@ -60,40 +58,9 @@ function runProgram() {
     });
 
     let buttonB = new MultiActionButton(pinButtonB);
-    let hueGo = false;
     buttonB.onLongPress({
         startFn: () => longPress.b = true,
-        endFn: async () => {
-            console.log('buttonB.onLongPress endFn');
-            longPress.b = false;
-
-            if (longPress.c) {
-                hueGo = true;
-                let waitMs = 50;
-                let leds = pixels.ledAmount;
-                let run1 = 0;
-                for (let t = 0; hueGo; t++) {
-                    run1 = (run1 + .1) % (leds * 3);
-                    let tNormalized = (t % leds) / leds;
-                    let sine = Math.sin(tNormalized * Math.PI) * 2;
-                    let aRange = [sine * run1, sine * run1 + 10]
-                        .map(n => Math.floor(n) % leds);
-
-                    let hueColor = hslToRgb(tNormalized, 1, .5);
-                    let hueColor2 = hslToRgb(1 - tNormalized, 1, .5);
-
-                    let aColor = Ws2812.valueFromColor(hueColor2);
-
-                    pixels.fillAllColor(hueColor);
-                    for (let i = aRange[0]; i < aRange[1]; i++) {
-                        pixels.setLed(i, aColor);
-                    }
-
-                    pixels.write();
-                    await waitForDuration(waitMs);
-                }
-            }
-        },
+        endFn: () => longPress.b = false,
     });
 
     let isBusy = false;
@@ -107,14 +74,16 @@ function runProgram() {
 
     buttonC.onRelease(async () => {
         if (longPress.b) {
-            console.log('c release after longpress b');
             colorCycler.cycleColor();
             pixelsAnimator.setColor(colorCycler.selectedRgb);
+
+            (colorCycler.selected.colorIndex === 1)
+            ? extraLed.start()
+            : extraLed.stop();
+
             return;
         }
 
-        console.log('is busy', isBusy,
-            'isPoweredOn', colorCycler.isPoweredOn);
         if (isBusy) {
             abortShutdown();
             return;
@@ -144,7 +113,6 @@ function runProgram() {
     });
 
     buttonB.onRelease(() => {
-        hueGo = false;
         colorCycler.cyclePower(longPress.c ? -1 : 1);
         pixelsAnimator.setColor(colorCycler.selectedRgb);
     });
